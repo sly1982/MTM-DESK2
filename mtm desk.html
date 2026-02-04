@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MTM | Secure Access</title>
+
+  <style>
+    :root{
+      --bg:#050607;
+      --txt:#eaf7ef;
+      --muted:rgba(234,247,239,.72);
+
+      --glass:rgba(10,14,12,.62);
+      --stroke:rgba(255,255,255,.10);
+
+      --green:#19f06a;
+      --red:#ff3b3b;
+
+      --hl1:rgba(25,240,106,.95);
+      --hl2:rgba(255,234,85,.90);
+
+      --ring:1;
+      --tiltX:0deg;
+      --tiltY:0deg;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color:var(--txt);
+      background:var(--bg);
+      overflow:hidden;
+    }
+
+    canvas#matrix{
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+      z-index:0;
+      filter: blur(.2px) saturate(1.2);
+    }
+
+    canvas#fx{
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+      z-index:3;
+      pointer-events:none;
+    }
+
+    .veil{
+      position:fixed;
+      inset:0;
+      z-index:1;
+      pointer-events:none;
+      background:
+        radial-gradient(1200px 700px at 50% 20%, rgba(0,0,0,.18), rgba(0,0,0,.68) 58%, rgba(0,0,0,.86)),
+        radial-gradient(800px 520px at 50% 52%, rgba(25,240,106,.08), transparent 58%);
+      animation: veilPulse 7s ease-in-out infinite;
+    }
+
+    @keyframes veilPulse{
+      0%,100%{ filter: brightness(1) }
+      50%{ filter: brightness(1.06) }
+    }
+
+    .wrap{
+      position:relative;
+      z-index:2;
+      min-height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      perspective: 900px;
+    }
+
+    .card{
+      width:min(600px, 94vw);
+      background:var(--glass);
+      border:1px solid var(--stroke);
+      border-radius:20px;
+      box-shadow:0 20px 60px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding:18px;
+      transform-style: preserve-3d;
+      transform:
+        rotateX(var(--tiltX))
+        rotateY(var(--tiltY));
+      transition: transform 180ms ease;
+    }
+
+    .brand{
+      text-align:center;
+      padding:10px 10px 10px;
+    }
+
+    .mtm{
+      font-size: clamp(36px, 8vw, 56px);
+      font-weight: 900;
+      letter-spacing: .10em;
+      margin:0;
+      line-height:1.05;
+    }
+
+    .sub{
+      margin:10px auto 0;
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:10px;
+      font-weight:800;
+      letter-spacing:.02em;
+      color:#07120b;
+      background: linear-gradient(90deg, var(--hl1), var(--hl2));
+      box-shadow:0 10px 22px rgba(0,0,0,.35);
+      font-size: clamp(14px, 3.6vw, 16px);
+    }
+
+    .tagline{
+      margin:12px 0 0;
+      text-align:center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      letter-spacing:.16em;
+      color:rgba(234,247,239,.55);
+      text-transform:uppercase;
+    }
+
+    .dial{
+      margin-top:14px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      padding:14px;
+      background: rgba(0,0,0,.25);
+    }
+
+    .topRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+
+    .hint{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .soundBtn{
+      height:34px;
+      padding:0 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--txt);
+      cursor:pointer;
+      font-weight:800;
+      letter-spacing:.04em;
+      font-size:12px;
+      touch-action:manipulation;
+      user-select:none;
+    }
+    .soundBtn:active{ transform: scale(.99) }
+
+    .panel{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.30);
+      padding:12px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .panel::before{
+      content:"";
+      position:absolute;
+      inset:-60%;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(25,240,106,.12), transparent 52%),
+        radial-gradient(circle at 70% 50%, rgba(255,234,85,.10), transparent 52%);
+      animation: panelGlow 9s ease-in-out infinite;
+      pointer-events:none;
+    }
+    @keyframes panelGlow{
+      0%,100%{ transform: translate3d(0,0,0) scale(1); opacity:.9 }
+      50%{ transform: translate3d(2%, -1%, 0) scale(1.03); opacity:1 }
+    }
+
+    .displayRing{
+      border-radius:18px;
+      padding:2px;
+      background:
+        conic-gradient(from 180deg,
+          rgba(25,240,106,.0),
+          rgba(25,240,106,.55) calc(var(--ring) * 360deg),
+          rgba(255,255,255,.08) 0
+        );
+      transition: filter 150ms ease;
+      position:relative;
+      z-index:1;
+    }
+
+    .display{
+      width:100%;
+      height:58px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.42);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-weight:900;
+      letter-spacing:.22em;
+      font-size:28px;
+      position:relative;
+      overflow:hidden;
+      transform: translateZ(8px);
+    }
+
+    .halo{
+      position:absolute;
+      inset:-6px;
+      border-radius:18px;
+      box-shadow: 0 0 0 0 rgba(25,240,106,.0);
+      pointer-events:none;
+      animation: haloPulse 2.8s ease-in-out infinite;
+      z-index:0;
+    }
+    @keyframes haloPulse{
+      0%,100%{ box-shadow: 0 0 0 0 rgba(25,240,106,.0) }
+      50%{ box-shadow: 0 0 24px 2px rgba(25,240,106,.14) }
+    }
+
+    .slot{
+      width:36px;
+      height:42px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      z-index:1;
+    }
+    .slot.empty{ color: rgba(234,247,239,.35) }
+
+    .keypad{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:10px;
+      position:relative;
+      z-index:1;
+      transform: translateZ(4px);
+    }
+
+    .key{
+      height:54px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: var(--txt);
+      font-weight:900;
+      font-size:18px;
+      cursor:pointer;
+      touch-action:manipulation;
+      user-select:none;
+      transition: transform 90ms ease, border-color 150ms ease, background 150ms ease;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      letter-spacing:.06em;
+    }
+    .key:active{ transform: scale(.98) }
+    .key.action{
+      font-size:13px;
+      text-transform:uppercase;
+      letter-spacing:.10em;
+      background: rgba(255,255,255,.05);
+    }
+
+    .actionsRow{
+      display:flex;
+      gap:10px;
+      margin-top:12px;
+      position:relative;
+      z-index:1;
+    }
+
+    .primary{
+      flex:1;
+      height:48px;
+      border-radius:16px;
+      border:1px solid rgba(25,240,106,.35);
+      background: rgba(25,240,106,.14);
+      color: var(--txt);
+      font-weight:900;
+      letter-spacing:.10em;
+      cursor:pointer;
+      touch-action:manipulation;
+      text-transform:uppercase;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    .secondary{
+      width:140px;
+      height:48px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--txt);
+      font-weight:900;
+      letter-spacing:.08em;
+      cursor:pointer;
+      touch-action:manipulation;
+      text-transform:uppercase;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+    }
+
+    .primary:active,.secondary:active{ transform: scale(.99) }
+
+    .status{
+      margin-top:12px;
+      border-radius:16px;
+      border:1px dashed rgba(255,255,255,.14);
+      padding:12px;
+      text-align:center;
+      font-weight:900;
+      letter-spacing:.12em;
+      min-height:46px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-transform:uppercase;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      position:relative;
+      z-index:1;
+    }
+
+    .ok{ color: var(--green) }
+    .bad{ color: var(--red) }
+
+    .shake{
+      animation: shake 260ms ease-in-out;
+    }
+    @keyframes shake{
+      0%,100%{ transform: translateX(0) }
+      20%{ transform: translateX(-6px) }
+      40%{ transform: translateX(6px) }
+      60%{ transform: translateX(-4px) }
+      80%{ transform: translateX(4px) }
+    }
+
+    .glitch{
+      position:relative;
+      display:inline-block;
+    }
+    .glitch::before,
+    .glitch::after{
+      content: attr(data-text);
+      position:absolute;
+      left:0;
+      top:0;
+      opacity:.85;
+      clip-path: inset(0 0 0 0);
+      pointer-events:none;
+    }
+    .glitch::before{
+      transform: translate(1px, -1px);
+      color: rgba(255,59,59,.75);
+      animation: glitchA 180ms steps(2,end) 1;
+    }
+    .glitch::after{
+      transform: translate(-1px, 1px);
+      color: rgba(25,240,106,.55);
+      animation: glitchB 180ms steps(2,end) 1;
+    }
+    @keyframes glitchA{
+      0%{ clip-path: inset(0 0 70% 0) }
+      50%{ clip-path: inset(30% 0 20% 0) }
+      100%{ clip-path: inset(60% 0 0 0) }
+    }
+    @keyframes glitchB{
+      0%{ clip-path: inset(60% 0 0 0) }
+      50%{ clip-path: inset(10% 0 60% 0) }
+      100%{ clip-path: inset(0 0 70% 0) }
+    }
+
+    @media (max-width: 360px){
+      .display{ height:54px; font-size:26px }
+      .slot{ width:34px; height:40px }
+      .key{ height:50px }
+      .secondary{ width:130px }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .veil, .panel::before, .halo{ animation:none }
+      .card{ transition:none }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="matrix" aria-hidden="true"></canvas>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div class="veil" aria-hidden="true"></div>
+
+  <main class="wrap">
+    <section class="card" id="card" role="region" aria-label="Accès sécurisé MTM">
+      <header class="brand">
+        <h1 class="mtm">MTM</h1>
+        <div class="sub">Moroccan Travel Management</div>
+        <div class="tagline">SECURED ACCESS NODE · MTM NETWORK</div>
+      </header>
+
+      <div class="dial">
+        <div class="topRow">
+          <p class="hint">Entrez le code sur le cadran</p>
+          <button class="soundBtn" id="soundBtn" type="button" aria-pressed="false">SOUND OFF</button>
+        </div>
+
+        <div class="panel" id="panel" aria-label="Cadran unique">
+          <div class="halo" aria-hidden="true"></div>
+
+          <div class="displayRing" id="displayRing">
+            <div class="display" id="display" aria-label="Code saisi">
+              <div class="slot empty" id="s0">•</div>
+              <div class="slot empty" id="s1">•</div>
+              <div class="slot empty" id="s2">•</div>
+            </div>
+          </div>
+
+          <div class="keypad" id="keypad" aria-label="Touches numériques"></div>
+
+          <div class="actionsRow">
+            <button class="primary" id="check" type="button">VALIDER</button>
+            <button class="secondary" id="clear" type="button">EFFACER</button>
+          </div>
+
+          <div class="status" id="status" aria-live="polite">
+            <span id="statusText"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const Matrix = (function () {
+      const canvas = document.getElementById('matrix');
+      const ctx = canvas.getContext('2d', { alpha: true });
+
+      let w, h, cols, drops, fontSize;
+      const chars = 'アァカサタナハマヤャラワン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#$%*+-<>';
+
+      let speedMul = 1.0;
+      let frozenUntil = 0;
+
+      function resize() {
+        const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        w = Math.floor(window.innerWidth);
+        h = Math.floor(window.innerHeight);
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        fontSize = Math.max(12, Math.min(20, Math.floor(w / 28)));
+        cols = Math.floor(w / fontSize);
+        drops = Array.from({ length: cols }, () => Math.random() * h / fontSize);
+      }
+
+      function setSpeed(mult) { speedMul = Math.max(0.25, Math.min(2.5, mult)); }
+      function freeze(ms) { frozenUntil = performance.now() + ms; }
+
+      function tick() {
+        const now = performance.now();
+        if (now < frozenUntil) { requestAnimationFrame(tick); return; }
+
+        ctx.fillStyle = 'rgba(0,0,0,0.10)';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.font = `600 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace`;
+        const step = 0.85 * speedMul;
+
+        for (let i = 0; i < cols; i++) {
+          const text = chars[Math.floor(Math.random() * chars.length)];
+          const x = i * fontSize;
+          const y = drops[i] * fontSize;
+
+          ctx.fillStyle = 'rgba(25,240,106,0.70)';
+          ctx.fillText(text, x, y);
+
+          if (y > h && Math.random() > 0.975) drops[i] = 0;
+          drops[i] += step;
+        }
+        requestAnimationFrame(tick);
+      }
+
+      window.addEventListener('resize', resize, { passive: true });
+      resize();
+      tick();
+      return { setSpeed, freeze };
+    })();
+
+    const FX = (function () {
+      const canvas = document.getElementById('fx');
+      const ctx = canvas.getContext('2d', { alpha: true });
+
+      let w, h;
+      let particles = [];
+
+      function resize() {
+        const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        w = Math.floor(window.innerWidth);
+        h = Math.floor(window.innerHeight);
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function burst(x, y) {
+        const count = 90;
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const s = 1.2 + Math.random() * 3.2;
+          particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1.0, r: 1 + Math.random() * 2 });
+        }
+      }
+
+      function tick() {
+        ctx.clearRect(0, 0, w, h);
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx; p.y += p.vy;
+          p.vx *= 0.985; p.vy *= 0.985; p.vy += 0.02;
+          p.life -= 0.015;
+          if (p.life <= 0) { particles.splice(i, 1); continue; }
+
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(25,240,106,1)';
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        requestAnimationFrame(tick);
+      }
+
+      window.addEventListener('resize', resize, { passive: true });
+      resize();
+      tick();
+      return { burst };
+    })();
+
+    const Sound = (function () {
+      let enabled = false;
+      let ctx, gain;
+
+      function ensure() {
+        if (ctx) return;
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        gain = ctx.createGain();
+        gain.gain.value = 0.06;
+        gain.connect(ctx.destination);
+      }
+
+      function beep(freq, dur) {
+        if (!enabled) return;
+        ensure();
+        if (ctx.state === "suspended") ctx.resume();
+
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+
+        const g = ctx.createGain();
+        g.gain.value = 0.0001;
+        osc.connect(g); g.connect(gain);
+
+        const now = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+        osc.start(now);
+        osc.stop(now + dur + 0.02);
+      }
+
+      function setEnabled(v) { enabled = !!v; }
+      function isEnabled() { return enabled; }
+      return { beep, setEnabled, isEnabled };
+    })();
+
+    (function () {
+      const SECRET = "513"; // ✅ UPDATED CODE
+      const MAX_LEN = 3;
+
+      const slots = [document.getElementById('s0'), document.getElementById('s1'), document.getElementById('s2')];
+      const keypad = document.getElementById('keypad');
+      const statusText = document.getElementById('statusText');
+      const statusBox = document.getElementById('status');
+      const panel = document.getElementById('panel');
+      const display = document.getElementById('display');
+      const displayRing = document.getElementById('displayRing');
+      const soundBtn = document.getElementById('soundBtn');
+
+      let code = "";
+      let started = false;
+
+      const TOTAL_MS = 30000;
+      let leftMs = TOTAL_MS;
+      let timerId = null;
+      let lastTick = 0;
+
+      function setRingFromLeft() {
+        const t = Math.max(0, Math.min(1, leftMs / TOTAL_MS));
+        document.documentElement.style.setProperty('--ring', String(t));
+      }
+
+      function startTimerIfNeeded() {
+        if (started) return;
+        started = true;
+        lastTick = performance.now();
+        timerId = requestAnimationFrame(tickTimer);
+      }
+
+      function tickTimer(now) {
+        const dt = now - lastTick;
+        lastTick = now;
+        leftMs -= dt;
+        setRingFromLeft();
+        if (leftMs <= 0) { timeout(); return; }
+        timerId = requestAnimationFrame(tickTimer);
+      }
+
+      function stopTimer() { if (timerId) cancelAnimationFrame(timerId); timerId = null; }
+      function resetTimer() { stopTimer(); started = false; leftMs = TOTAL_MS; setRingFromLeft(); }
+
+      function setStatus(type, text, glitch=false) {
+        statusText.className = "";
+        statusBox.classList.remove('ok', 'bad');
+        if (type) statusBox.classList.add(type);
+        statusText.innerHTML = glitch ? `<span class="glitch" data-text="${text}">${text}</span>` : text;
+      }
+
+      function render() {
+        for (let i = 0; i < MAX_LEN; i++) {
+          const ch = code[i];
+          if (ch === undefined) { slots[i].textContent = "•"; slots[i].classList.add('empty'); }
+          else { slots[i].textContent = ch; slots[i].classList.remove('empty'); }
+        }
+      }
+
+      function tapFeedback() {
+        displayRing.style.filter = "brightness(1.18)";
+        display.style.transform = "translateZ(8px) scale(0.985)";
+        setTimeout(() => { displayRing.style.filter = ""; display.style.transform = "translateZ(8px) scale(1)"; }, 90);
+      }
+
+      function pressDigit(d) {
+        if (code.length >= MAX_LEN) return;
+        startTimerIfNeeded();
+        code += String(d);
+        setStatus(null, "");
+        render();
+        tapFeedback();
+        Matrix.setSpeed(0.55);
+        Sound.beep(480, 0.06);
+      }
+
+      function backspace() {
+        if (!code.length) return;
+        startTimerIfNeeded();
+        code = code.slice(0, -1);
+        setStatus(null, "");
+        render();
+        tapFeedback();
+        Matrix.setSpeed(0.55);
+        Sound.beep(320, 0.05);
+      }
+
+      function clearAll() {
+        code = "";
+        setStatus(null, "");
+        render();
+        resetTimer();
+        Matrix.setSpeed(1.0);
+        Sound.beep(260, 0.06);
+      }
+
+      function timeout() {
+        code = "";
+        render();
+        resetTimer();
+        Matrix.setSpeed(1.2);
+        setStatus('bad', 'ACCESS TIMEOUT', true);
+        panel.classList.add('shake');
+        setTimeout(() => panel.classList.remove('shake'), 280);
+        Sound.beep(180, 0.10);
+      }
+
+      function validate() {
+        startTimerIfNeeded();
+
+        if (code.length !== MAX_LEN) {
+          panel.classList.add('shake');
+          setTimeout(() => panel.classList.remove('shake'), 280);
+          Matrix.setSpeed(1.8);
+          setStatus('bad', 'ERREUR, TRY AGAIN.', true);
+          Sound.beep(190, 0.10);
+          return;
+        }
+
+        if (code === SECRET) {
+          Matrix.freeze(800);
+          Matrix.setSpeed(0.35);
+          setStatus('ok', 'BONNE RÉPONSE');
+
+          const r = display.getBoundingClientRect();
+          FX.burst(r.left + r.width / 2, r.top + r.height / 2);
+
+          Sound.beep(520, 0.08);
+          setTimeout(() => Sound.beep(720, 0.08), 90);
+
+          setTimeout(() => { setStatus('ok', 'ACCESS GRANTED'); }, 800);
+          stopTimer();
+        } else {
+          panel.classList.add('shake');
+          setTimeout(() => panel.classList.remove('shake'), 280);
+          Matrix.setSpeed(2.1);
+          setStatus('bad', 'ERREUR, TRY AGAIN.', true);
+          Sound.beep(200, 0.10);
+        }
+      }
+
+      const keys = ["1","2","3","4","5","6","7","8","9","⌫","0","CLR"];
+      keys.forEach(k => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'key' + ((k === "⌫" || k === "CLR") ? ' action' : '');
+        btn.textContent = k;
+
+        if (k === "⌫") btn.addEventListener('click', backspace);
+        else if (k === "CLR") btn.addEventListener('click', clearAll);
+        else btn.addEventListener('click', () => pressDigit(k));
+
+        keypad.appendChild(btn);
+      });
+
+      document.getElementById('check').addEventListener('click', validate);
+      document.getElementById('clear').addEventListener('click', clearAll);
+
+      window.addEventListener('keydown', (e) => {
+        const k = e.key;
+        if (k >= '0' && k <= '9') pressDigit(k);
+        else if (k === 'Backspace') backspace();
+        else if (k === 'Enter') validate();
+        else if (k === 'Escape') clearAll();
+      });
+
+      soundBtn.addEventListener('click', () => {
+        const next = !Sound.isEnabled();
+        Sound.setEnabled(next);
+        soundBtn.textContent = next ? "SOUND ON" : "SOUND OFF";
+        soundBtn.setAttribute('aria-pressed', next ? "true" : "false");
+        if (next) Sound.beep(520, 0.06);
+      });
+
+      let speedRestoreT = null;
+      const restoreSpeed = () => {
+        if (speedRestoreT) clearTimeout(speedRestoreT);
+        speedRestoreT = setTimeout(() => Matrix.setSpeed(1.0), 520);
+      };
+      panel.addEventListener('pointerdown', restoreSpeed, { passive:true });
+      panel.addEventListener('pointerup', restoreSpeed, { passive:true });
+
+      setRingFromLeft();
+      render();
+
+      const card = document.getElementById('card');
+      const prefersReduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (!prefersReduce) {
+        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+        function setTilt(rx, ry) {
+          document.documentElement.style.setProperty('--tiltX', rx.toFixed(2) + 'deg');
+          document.documentElement.style.setProperty('--tiltY', ry.toFixed(2) + 'deg');
+        }
+        function resetTilt() { setTilt(0,0); }
+
+        card.addEventListener('pointermove', (e) => {
+          const r = card.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const dx = (e.clientX - cx) / (r.width / 2);
+          const dy = (e.clientY - cy) / (r.height / 2);
+          setTilt(clamp(-dy * 6, -6, 6), clamp(dx * 6, -6, 6));
+        });
+
+        card.addEventListener('pointerleave', resetTilt);
+
+        window.addEventListener('deviceorientation', (e) => {
+          if (!e || e.beta == null || e.gamma == null) return;
+          setTilt(clamp((e.beta - 20) * 0.12, -6, 6), clamp(e.gamma * 0.12, -6, 6));
+        }, true);
+      }
+    })();
+  </script>
+</body>
+</html>
